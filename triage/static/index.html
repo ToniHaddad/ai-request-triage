@@ -207,7 +207,7 @@ async function roadmap(){
       <tbody>${d.items.map(i=>`<tr>
         <td class="n">${i.rank ?? "&ndash;"}</td>
         <td><a href="#/memo/${i.id}">${esc(i.title)}</a><small>${esc(i.team)}, ${esc(i.office)}</small></td>
-        <td>${chip(i.route)}<small>${esc(i.status_text)}</small></td>
+        <td>${chip(i.route)}<small>${esc(i.status === "not_now" ? i.reason : i.status_text)}</small></td>
         <td class="n hide-m">${i.scores.value}</td><td class="n hide-m">${i.scores.risk}</td><td class="n hide-m">${i.scores.effort}</td><td class="n hide-m">${i.scores.readiness}</td>
         <td class="n"><b>${i.priority}</b></td><td>${pctText(i)}</td></tr>`).join("")}</tbody>
     </table></div>
