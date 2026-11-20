@@ -1,0 +1,64 @@
+# Every number the model uses lives here. The page shows this file's values.
+
+[capacity]
+build_slots = 2        # custom pilots and scheduled automations that can run at once
+horizon_weeks = 13     # the 90-day roadmap
+
+[weights]              # priority = weighted mix of the four 0-100 scores (risk and effort count against)
+value = 0.45
+risk = 0.20
+effort = 0.15
+readiness = 0.20
+
+[value]
+weeks_per_quarter = 13
+saved_hours_cap = 400  # saved hours per quarter that earn a full 100 value score
+[value.capture]        # share of the task time the solution is expected to remove
+fixed_rules = 0.9
+language = 0.5
+mixed = 0.6
+
+[risk]
+data_weight = 0.6
+consequence_weight = 0.4
+[risk.data]
+public = 0
+internal = 25
+personal = 70
+sensitive = 100
+[risk.consequence]
+low = 0
+medium = 50
+high = 100
+
+[effort]
+per_system = 12        # points for each system the task touches
+[effort.kind]
+fixed_rules = 10
+language = 25
+mixed = 35
+[effort.data]
+public = 0
+internal = 5
+personal = 20
+sensitive = 30
+
+[readiness]
+owner_points = 50
+measurable_points = 50
+
+[rules]
+min_saved_hours = 25       # below this many saved hours a quarter, not now
+pilot_min_readiness = 100  # a pilot needs a named owner and a measurable success statement
+
+[timeline]
+pilot_base_weeks = 6
+pilot_effort_weeks = 7     # added in proportion to the effort score
+automation_base_weeks = 2
+automation_effort_weeks = 6
+training_weeks = 4
+
+[stability]
+runs = 1000
+variation = 0.2            # each weight is varied by up to plus or minus 20 percent
+seed = 107
