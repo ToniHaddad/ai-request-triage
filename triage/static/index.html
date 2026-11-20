@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI request triage</title>
+<style>
+:root{
+  --bg:#f5f1e8; --surface:#fffdf8; --ink:#1e2a2d; --muted:#5d6b6d; --line:#ddd5c5; --soft:#efe9db;
+  --pilot:#1d6b66; --auto:#a8561a; --train:#3b5a99; --notnow:#80807a; --warn:#a33a2a;
+  --pilot-bg:#d8ebe8; --auto-bg:#f3dfcd; --train-bg:#dde5f4; --notnow-bg:#e6e4dc;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#131819; --surface:#1b2223; --ink:#e8e5dd; --muted:#9aa7a8; --line:#2f3a3b; --soft:#232c2d;
+  --pilot:#5cc0b6; --auto:#e9a263; --train:#8fb0ee; --notnow:#9a9a92; --warn:#ee8a76;
+  --pilot-bg:#17403d; --auto-bg:#47301c; --train-bg:#1f3050; --notnow-bg:#2b2f2e;
+}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans)}
+a{color:var(--pilot)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 18px 60px}
+header.top{border-bottom:1px solid var(--line);background:var(--surface)}
+header.top .wrap{padding-bottom:0}
+.brand{display:flex;align-items:baseline;gap:12px;padding:16px 0 8px;flex-wrap:wrap}
+.brand b{font:700 20px var(--serif);letter-spacing:.2px}
+.brand span{color:var(--muted);font-size:13px}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;font-size:14px;border-bottom:3px solid transparent;white-space:nowrap}
+nav a.on{color:var(--ink);border-color:var(--pilot)}
+h1{font:700 30px/1.15 var(--serif);margin:26px 0 6px}
+h2{font:700 21px/1.2 var(--serif);margin:30px 0 10px}
+h3{font:700 13px var(--sans);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 8px}
+p.lede{color:var(--muted);margin:0 0 16px;max-width:64ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+button,.btn{font:600 14px var(--sans);padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;text-decoration:none;display:inline-block}
+button.primary{background:var(--pilot);border-color:var(--pilot);color:#fff}
+@media (prefers-color-scheme:dark){button.primary{color:#0b1a19}}
+.stepper{display:inline-flex;align-items:center;gap:8px;font-size:14px}
+.stepper button{padding:4px 11px;font-size:16px}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap}
+.chip.agent_pilot{background:var(--pilot-bg);color:var(--pilot)}
+.chip.automation{background:var(--auto-bg);color:var(--auto)}
+.chip.existing_training{background:var(--train-bg);color:var(--train)}
+.chip.not_now{background:var(--notnow-bg);color:var(--notnow)}
+.chip.st{background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:600}
+
+/* timeline */
+.tl{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:hidden}
+.tl-head,.tl-row{display:grid;grid-template-columns:230px 1fr;gap:12px;align-items:center}
+.weeks{display:grid;grid-template-columns:repeat(13,1fr);font-size:11px;color:var(--muted);text-align:center;border-bottom:1px solid var(--line);padding-bottom:4px}
+.weeks span:nth-child(4n+1){color:var(--ink);font-weight:700}
+.track{position:relative;height:28px;background:
+  repeating-linear-gradient(90deg,transparent 0,transparent calc(100%/13 - 1px),var(--line) calc(100%/13 - 1px),var(--line) calc(100%/13))}
+.bar{position:absolute;top:3px;height:22px;border-radius:5px;color:#fff;font-size:12px;font-weight:700;padding:0 8px;line-height:22px;white-space:nowrap;overflow:hidden}
+.bar.agent_pilot{background:var(--pilot)}.bar.automation{background:var(--auto)}.bar.existing_training{background:var(--train)}
+@media (prefers-color-scheme:dark){.bar{color:#10181a}}
+.tl-label{font-size:14px;line-height:1.25}
+.tl-label a{color:var(--ink);font-weight:600;text-decoration:none}
+.tl-label small{display:block;color:var(--muted);font-size:12px}
+.tl-row{padding:7px 0;border-bottom:1px dashed var(--line)}
+.tl-sec{font:700 12px var(--sans);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 2px}
+.line{display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--warn);font-weight:700;font-size:13px}
+.line:before,.line:after{content:"";flex:1;border-top:2px dashed var(--warn)}
+.ghost{color:var(--muted);font-size:13px}
+
+/* table */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px 8px;border-bottom:2px solid var(--line)}
+td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td a{color:var(--ink);font-weight:600;text-decoration:none}
+td small{display:block;color:var(--muted)}
+.tablewrap{overflow-x:auto}
+
+/* memo */
+.decision{border-left:6px solid var(--pilot);padding:14px 18px;background:var(--surface);border-radius:0 10px 10px 0;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.decision.automation{border-left-color:var(--auto)}.decision.existing_training{border-left-color:var(--train)}.decision.not_now{border-left-color:var(--notnow)}
+.decision .big{font:700 24px/1.2 var(--serif);margin:6px 0}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile b{font:700 32px/1 var(--serif);display:block}
+.tile em{font-style:normal;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tile code{display:block;margin-top:8px;font:12px/1.4 ui-monospace,Consolas,monospace;color:var(--muted);word-break:break-word}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.change{background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+.change li{margin:8px 0}
+ul.plain{margin:0;padding-left:20px}
+dl.ans{display:grid;grid-template-columns:max-content 1fr;gap:4px 14px;margin:0;font-size:14px}
+dl.ans dt{color:var(--muted)}dl.ans dd{margin:0}
+
+/* forms */
+form .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label.f{display:block;font-weight:600;font-size:14px}
+label.f small{display:block;font-weight:400;color:var(--muted);margin:1px 0 5px}
+input[type=text],input[type=number],select,textarea{width:100%;font:16px var(--sans);padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+textarea{min-height:70px}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:14px 16px 18px;margin:0 0 16px;background:var(--surface)}
+legend{font:700 16px var(--serif);padding:0 6px}
+.full{grid-column:1/-1}
+.err{color:var(--warn);font-weight:600}
+
+.weights{display:grid;gap:8px}
+.wbar{display:grid;grid-template-columns:90px 1fr 50px;gap:10px;align-items:center;font-size:14px}
+.wbar i{display:block;height:12px;background:var(--pilot);border-radius:6px}
+.rule{display:grid;grid-template-columns:44px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.rule b.id{font:700 18px var(--serif);color:var(--muted)}
+.foot{margin-top:40px;color:var(--muted);font-size:13px}
+
+#sheet{display:none}
+@media (max-width:760px){
+  h1{font-size:25px}
+  .tl-head,.tl-row{grid-template-columns:1fr;gap:4px}
+  .tl-head .tl-label{display:none}
+  .tiles{grid-template-columns:1fr 1fr}
+  .two,form .grid{grid-template-columns:1fr}
+  .tl{padding:12px}
+  .hide-m{display:none}
+  .decision .big{font-size:21px}
+}
+@media print{
+  @page{size:A4;margin:14mm}
+  body{background:#fff;color:#000;font-size:10.5pt}
+  .app{display:none!important}
+  #sheet{display:block}
+  body[data-print=memo] #sheet{display:none}
+  body[data-print=memo] .app{display:block!important}
+  body[data-print=memo] header.top,body[data-print=memo] .noprint{display:none!important}
+  #sheet h1{font-size:20pt;margin:0 0 2mm}
+  #sheet h2{font-size:12pt;margin:5mm 0 1.5mm;border-bottom:1px solid #000;padding-bottom:1mm}
+  #sheet table{font-size:9pt}
+  #sheet td,#sheet th{padding:2px 5px;border-bottom:1px solid #bbb;color:#000}
+  #sheet p{margin:1mm 0;font-size:9.5pt}
+  .chip{border:1px solid #000;background:#fff!important;color:#000!important}
+  .card,.decision,.tile,.change{break-inside:avoid;background:#fff!important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top"><div class="wrap">
+  <div class="brand"><b>AI request triage</b><span>Northbridge Relief, fictional demo data</span></div>
+  <nav id="nav">
+    <a href="#/roadmap" data-r="roadmap">Roadmap</a>
+    <a href="#/intake" data-r="intake">Intake form</a>
+    <a href="#/model" data-r="model">How it scores</a>
+  </nav>
+</div></header>
+<main class="wrap" id="main"></main>
+</div>
+<div id="sheet"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const api = async (u, o) => { const r = await fetch(u, o); if (!r.ok) throw new Error((await r.text()) || r.status); return r.json(); };
+const LABEL = {agent_pilot:"Custom agent pilot", automation:"Scheduled automation", existing_training:"Existing capability + training", not_now:"Not now"};
+let slots = null;
+const q = () => slots === null ? "" : "?slots=" + slots;
+const chip = (route) => `<span class="chip ${route}">${LABEL[route]}</span>`;
+
+function pctText(it){
+  const s = it.stability; if(!s) return "";
+  if (s.pct_funded !== null && s.pct_funded !== undefined) return s.pct_funded + "% funded";
+  if (s.best_rank) return "rank " + s.best_rank + (s.best_rank===s.worst_rank ? "" : "-" + s.worst_rank);
+  return "n/a";
+}
+
+/* ---------------- roadmap ---------------- */
+async function roadmap(){
+  const d = await api("/api/roadmap" + q());
+  slots = d.slots;
+  const W = d.horizon_weeks;
+  const funded = d.items.filter(i => i.status === "funded");
+  const train = d.items.filter(i => i.status === "training");
+  const wait = d.items.filter(i => i.status === "waitlist");
+  const notnow = d.items.filter(i => i.status === "not_now");
+  const bar = i => `<div class="track"><div class="bar ${i.route}" style="left:calc(${(i.start_week-1)/W*100}% + 1px);width:calc(${(i.end_week-i.start_week+1)/W*100}% - 2px)">${i.end_week-i.start_week+1} wk</div></div>`;
+  const row = i => `<div class="tl-row"><div class="tl-label"><a href="#/memo/${i.id}">${esc(i.title)}</a><small>${esc(i.team)}, ${esc(i.office)} &middot; ${LABEL[i.route]}</small></div>${bar(i)}</div>`;
+  const wk = Array.from({length:W},(_,k)=>`<span>${k+1}</span>`).join("");
+  $("#main").innerHTML = `
+    <h1>The ranked 90-day roadmap</h1>
+    <p class="lede">${d.items.length} requests, ${d.slots} build slots. Each request answered the same eight questions; every number below comes from the scoring model on the "How it scores" page.</p>
+    <div class="row noprint" style="margin-bottom:14px">
+      <span class="stepper">Build slots <button id="m" aria-label="fewer">&minus;</button><b id="sl">${d.slots}</b><button id="p" aria-label="more">+</button></span>
+      <span class="spacer"></span>
+      <button class="primary" onclick="printRoadmap()">Print one-page memo</button>
+    </div>
+    <div class="tl">
+      <div class="tl-head"><div class="tl-label"></div><div class="weeks">${wk}</div></div>
+      <div class="tl-sec">Funded builds: inside the capacity line</div>
+      ${funded.map(row).join("") || '<p class="ghost">No build items are funded.</p>'}
+      <div class="line">capacity line: ${d.slots} build slot${d.slots===1?"":"s"}</div>
+      <div class="tl-sec">Training lane: needs no build slot</div>
+      ${train.map(row).join("") || '<p class="ghost">None.</p>'}
+      <div class="tl-sec">Below the line: next in order when a slot frees up</div>
+      ${wait.map(i=>`<div class="tl-row"><div class="tl-label"><a href="#/memo/${i.id}">${esc(i.title)}</a><small>${esc(i.team)}, ${esc(i.office)} &middot; ${LABEL[i.route]}</small></div><div class="ghost">Rank ${i.rank}. ${i.stability.pct_funded}% of runs fund it. ${i.change && i.change.line ? "Moves up if: " + esc(i.change.line.change) : ""}</div></div>`).join("") || '<p class="ghost">None.</p>'}
+    </div>
+
+    <h2>All requests, ranked</h2>
+    <div class="card tablewrap"><table>
+      <thead><tr><th class="n">#</th><th>Request</th><th>Decision</th><th class="n hide-m">Value</th><th class="n hide-m">Risk</th><th class="n hide-m">Effort</th><th class="n hide-m">Ready</th><th class="n">Priority</th><th>Stability</th></tr></thead>
+      <tbody>${d.items.map(i=>`<tr>
+        <td class="n">${i.rank ?? "&ndash;"}</td>
+        <td><a href="#/memo/${i.id}">${esc(i.title)}</a><small>${esc(i.team)}, ${esc(i.office)}</small></td>
+        <td>${chip(i.route)}<small>${esc(i.status_text)}</small></td>
+        <td class="n hide-m">${i.scores.value}</td><td class="n hide-m">${i.scores.risk}</td><td class="n hide-m">${i.scores.effort}</td><td class="n hide-m">${i.scores.readiness}</td>
+        <td class="n"><b>${i.priority}</b></td><td>${pctText(i)}</td></tr>`).join("")}</tbody>
+    </table></div>
+    <p class="foot">Stability: ${d.stability.runs} runs, every weight varied by up to ${Math.round(d.stability.variation*100)} percent, seed ${d.stability.seed}. "% funded" is the share of runs in which a build item stays inside the capacity line. Not-now items have no rank.</p>`;
+  $("#m").onclick = () => { slots = Math.max(0, slots-1); route(); };
+  $("#p").onclick = () => { slots = Math.min(8, slots+1); route(); };
+  buildSheet(d);
+}
+
+function buildSheet(d){
+  const sec = (title, items, fn) => items.length ? `<h2>${title}</h2>${fn(items)}` : "";
+  const tbl = (items, extra) => `<table><thead><tr><th>#</th><th>Request</th><th>Decision</th><th>Priority</th><th>${extra}</th></tr></thead><tbody>${items.map(i=>`<tr><td>${i.rank ?? ""}</td><td><b>${esc(i.title)}</b><br>${esc(i.team)}, ${esc(i.office)}</td><td>${LABEL[i.route]}${i.start_week?`<br>Weeks ${i.start_week}-${i.end_week}`:""}</td><td>${i.priority}</td><td>${extra==="What would change it" ? changeText(i) : esc(i.reason)}</td></tr>`).join("")}</tbody></table>`;
+  const changeText = i => {
+    const parts = [];
+    if (i.change && i.change.route) parts.push("Route changes if " + esc(i.change.route.change) + ".");
+    if (i.change && i.change.line) parts.push("Crosses the line if " + esc(i.change.line.change) + ".");
+    parts.push(esc(i.stability_text));
+    return parts.join(" ");
+  };
+  $("#sheet").innerHTML = `
+    <h1>AI roadmap memo: next 90 days</h1>
+    <p>Northbridge Relief (fictional demo). ${d.items.length} requests scored on the same questions. Capacity: ${d.slots} build slots (custom pilots and scheduled automations). Existing-capability training needs no slot.</p>
+    ${sec("Funded builds", d.items.filter(i=>i.status==="funded"), x=>tbl(x,"What would change it"))}
+    ${sec("Training lane", d.items.filter(i=>i.status==="training"), x=>tbl(x,"Why"))}
+    ${sec("Below the capacity line", d.items.filter(i=>i.status==="waitlist"), x=>tbl(x,"What would change it"))}
+    ${sec("Not now", d.items.filter(i=>i.status==="not_now"), x=>tbl(x,"Why"))}
+    <p style="margin-top:4mm"><small>Priority = value, readiness, and the inverse of risk and effort, mixed with the published weights. Stability: ${d.stability.runs} seeded runs with every weight varied by up to ${Math.round(d.stability.variation*100)} percent.</small></p>`;
+}
+function printRoadmap(){ delete document.body.dataset.print; window.print(); }
+function printMemo(){ document.body.dataset.print = "memo"; window.print(); }
+window.addEventListener("afterprint", () => delete document.body.dataset.print);
+
+/* ---------------- memo ---------------- */
+async function memo(id){
+  const m = await api(`/api/requests/${id}/memo` + q());
+  const e = m.entry, r = m.request, s = e.scores, w = m.workings;
+  const tile = (n, v, code, note) => `<div class="tile"><em>${n}</em><b>${v}</b><code>${esc(code)}</code>${note?`<small class="ghost">${note}</small>`:""}</div>`;
+  const KIND = {fixed_rules:"The same fixed steps every time", language:"Reading, summarising or writing text", mixed:"Both fixed steps and text"};
+  const CONS = {low:"Someone redoes it, no harm", medium:"Money, time or trust lost, but fixable", high:"Harm to people, a donor breach, or cannot be undone"};
+  $("#main").innerHTML = `
+    <p class="noprint"><a href="#/roadmap">&larr; Roadmap</a></p>
+    <h1>${esc(r.title)}</h1>
+    <p class="lede">${esc(r.team)}, ${esc(r.office)}. ${esc(r.description)}</p>
+    <div class="decision ${e.route}">
+      <h3>Decision${e.rank ? ` &middot; rank ${e.rank}` : ""}</h3>
+      ${chip(e.route)} <span class="chip st">${esc(e.status_text)}</span>
+      <div class="big">${esc(e.route_label)}</div>
+      <div>${esc(e.reason)} <span class="ghost">(rule ${e.rule})</span></div>
+    </div>
+
+    <h2>The scores</h2>
+    <div class="tiles">
+      ${tile("Value", s.value, w.hours + ". " + w.saved + ". " + w.value)}
+      ${tile("Risk", s.risk, w.risk, "lower is better")}
+      ${tile("Effort", s.effort, w.effort, "lower is better")}
+      ${tile("Readiness", s.readiness, w.readiness)}
+    </div>
+    <p class="ghost">Priority ${e.priority} out of 100 = weighted mix of value, readiness, 100 minus risk, 100 minus effort. Weights are on the "How it scores" page.</p>
+
+    <div class="two">
+      <div class="card"><h3>The answers that drove it</h3><ul class="plain">${m.drivers.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>
+      <div class="card"><h3>What the team told us</h3><dl class="ans">
+        <dt>How often</dt><dd>${r.per_week} a week, per person</dd>
+        <dt>People</dt><dd>${r.people}</dd>
+        <dt>Minutes each</dt><dd>${r.minutes}</dd>
+        <dt>Owner</dt><dd>${r.owner ? esc(r.owner) : "nobody"}</dd>
+        <dt>Data</dt><dd>${esc(r.data_class)}</dd>
+        <dt>Success</dt><dd>${r.success_text ? esc(r.success_text) : "not stated"} (${r.success_measurable ? "measurable" : "not measurable"})</dd>
+        <dt>Existing tool</dt><dd>${esc(r.existing_tool)}</dd>
+        <dt>Task</dt><dd>${KIND[r.task_kind]}</dd>
+        <dt>Wrong answer</dt><dd>${esc(r.consequence)}: ${CONS[r.consequence]}</dd>
+        <dt>Systems</dt><dd>${r.systems}</dd>
+      </dl></div>
+    </div>
+
+    <h2>What evidence would change this</h2>
+    <div class="change"><ul class="plain" style="padding-left:18px">
+      ${m.change.map(c=>`<li>${esc(c.text)}</li>`).join("")}
+      <li>${esc(m.stability_text)}</li></ul>
+      <p class="ghost" style="margin:8px 0 0">Computed, not written by hand: every single-answer change is tried, cheapest first (a changed category costs 1.0, a changed number costs its relative size), and the whole portfolio is re-ranked each time.</p>
+    </div>
+    <p class="noprint" style="margin-top:18px"><button onclick="printMemo()">Print this memo</button></p>`;
+}
+
+/* ---------------- intake ---------------- */
+function intake(){
+  $("#main").innerHTML = `
+  <h1>Ask for AI help</h1>
+  <p class="lede">Every team answers the same questions, so every request is judged the same way. You will see the decision, the scores and what would change it.</p>
+  <form id="f">
+    <fieldset><legend>The task</legend><div class="grid">
+      <label class="f">Your team<small>Who is asking</small><input type="text" name="team" required></label>
+      <label class="f">Office<small>&nbsp;</small><select name="office"><option>Lebanon</option><option>Kenya</option><option>Colombia</option><option>Global</option></select></label>
+      <label class="f full">What is the task? <small>A short name</small><input type="text" name="title" required></label>
+      <label class="f full">Describe it<small>One or two sentences</small><textarea name="description"></textarea></label>
+    </div></fieldset>
+    <fieldset><legend>How much time it takes</legend><div class="grid">
+      <label class="f">How often per person, per week<small>Times each person does it</small><input type="number" name="per_week" min="0.1" step="0.1" inputmode="decimal" required></label>
+      <label class="f">How many people do it<small>Headcount</small><input type="number" name="people" min="1" step="1" inputmode="numeric" required></label>
+      <label class="f">Minutes each time<small>Average, start to finish</small><input type="number" name="minutes" min="1" step="1" inputmode="numeric" required></label>
+      <label class="f">Systems it touches<small>Mailboxes, trackers, finance system...</small><input type="number" name="systems" min="1" max="5" value="1" required></label>
+    </div></fieldset>
+    <fieldset><legend>The task itself</legend><div class="grid">
+      <label class="f full">What does the task involve?<small>If it is the same steps every time with no reading or judgment, say so</small>
+        <select name="task_kind"><option value="language">Reading, summarising or writing text</option><option value="fixed_rules">The same fixed steps every time</option><option value="mixed">Both</option></select></label>
+      <label class="f full">What information does it touch?<select name="data_class"><option value="public">Public</option><option value="internal" selected>Internal</option><option value="personal">Personal data</option><option value="sensitive">Protection-sensitive</option></select></label>
+      <label class="f full">If the answer were wrong, what happens?<select name="consequence"><option value="low">Someone redoes it, no harm</option><option value="medium">Money, time or trust lost, but fixable</option><option value="high">Harm to people, a donor breach, or cannot be undone</option></select></label>
+      <label class="f full">Could a tool you already have do it?<small>For example Copilot in the apps you use today</small>
+        <select name="existing_tool"><option value="no">No</option><option value="partly">Partly</option><option value="yes">Yes</option></select></label>
+    </div></fieldset>
+    <fieldset><legend>Ownership and success</legend><div class="grid">
+      <label class="f full">Who owns the process?<small>A named person. Leave empty if nobody does.</small><input type="text" name="owner"></label>
+      <label class="f full">How will you recognise success?<small>Write it as you would say it</small><textarea name="success_text"></textarea></label>
+      <label class="f full">Is that a measurable statement?<small>A number and a time, for example "from 5 days to 2"</small>
+        <select name="success_measurable"><option value="false">No, not yet</option><option value="true">Yes, it has a number and a time</option></select></label>
+    </div></fieldset>
+    <div class="row"><button class="primary" type="submit">Submit request</button><span id="msg" class="err"></span></div>
+  </form>`;
+  $("#f").onsubmit = async ev => {
+    ev.preventDefault();
+    const fd = Object.fromEntries(new FormData(ev.target));
+    fd.per_week = parseFloat(fd.per_week); fd.people = parseInt(fd.people); fd.minutes = parseFloat(fd.minutes);
+    fd.systems = parseInt(fd.systems); fd.success_measurable = fd.success_measurable === "true";
+    try { const r = await api("/api/requests", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(fd)}); location.hash = "#/memo/" + r.id; }
+    catch(e){ $("#msg").textContent = "Could not save: check the numbers."; }
+  };
+}
+
+/* ---------------- model ---------------- */
+async function model(){
+  const d = await api("/api/config"), c = d.config;
+  const W = c.weights, tot = Object.values(W).reduce((a,b)=>a+b,0);
+  const kv = o => Object.entries(o).map(([k,v])=>`<tr><td>${esc(k.replace("_"," "))}</td><td class="n">${v}</td></tr>`).join("");
+  $("#main").innerHTML = `
+  <h1>How it scores</h1>
+  <p class="lede">Every number is below, read live from <code>triage/config.toml</code>. Change the file and the roadmap changes.</p>
+  <div class="two">
+    <div class="card"><h3>Weights (priority out of 100)</h3><div class="weights">
+      ${Object.entries(W).map(([k,v])=>`<div class="wbar"><span>${k}${k==="risk"||k==="effort"?" (against)":""}</span><i style="width:${v/tot*100*2}%"></i><b>${Math.round(v/tot*100)}%</b></div>`).join("")}
+    </div>
+    <p class="ghost">Priority = ${Object.keys(W).map(k=>k==="risk"||k==="effort"?`w<sub>${k}</sub> &times; (100 &minus; ${k})`:`w<sub>${k}</sub> &times; ${k}`).join(" + ")}</p></div>
+    <div class="card"><h3>Capacity and rules</h3><table><tbody>
+      <tr><td>Build slots</td><td class="n">${c.capacity.build_slots}</td></tr>
+      <tr><td>Horizon, weeks</td><td class="n">${c.capacity.horizon_weeks}</td></tr>
+      <tr><td>Minimum saved hours a quarter</td><td class="n">${c.rules.min_saved_hours}</td></tr>
+      <tr><td>Readiness a pilot needs</td><td class="n">${c.rules.pilot_min_readiness}</td></tr>
+      <tr><td>Hours that earn a value score of 100</td><td class="n">${c.value.saved_hours_cap}</td></tr>
+      <tr><td>Stability runs, variation</td><td class="n">${c.stability.runs}, ${Math.round(c.stability.variation*100)}%</td></tr></tbody></table></div>
+  </div>
+  <h2>The routing rules, in order</h2>
+  <div class="card">${d.rules.map(r=>`<div class="rule"><b class="id">${r.id}</b><div>${chip(r.route)} <b>${esc(r.title)}</b><br>${esc(r.text)}</div></div>`).join("")}
+  <p class="ghost" style="margin-bottom:0">The first rule that fits decides. Each rule has a test.</p></div>
+  <h2>The scales</h2>
+  <div class="two">
+    <div class="card"><h3>Value</h3><p class="ghost">Hours a quarter = per week &times; ${c.value.weeks_per_quarter} &times; people &times; minutes / 60, times the share removed.</p><table><tbody>${kv(c.value.capture)}</tbody></table></div>
+    <div class="card"><h3>Risk</h3><p class="ghost">${c.risk.data_weight} &times; data + ${c.risk.consequence_weight} &times; consequence.</p><table><tbody>${kv(c.risk.data)}${kv(c.risk.consequence)}</tbody></table></div>
+    <div class="card"><h3>Effort</h3><p class="ghost">${c.effort.per_system} per system + task kind + data, capped at 100.</p><table><tbody>${kv(c.effort.kind)}${kv(c.effort.data)}</tbody></table></div>
+    <div class="card"><h3>Readiness</h3><p class="ghost">Owner named: ${c.readiness.owner_points}. Success measurable: ${c.readiness.measurable_points}.</p></div>
+  </div>
+  <p class="foot"><a href="#" id="reset">Reset to the eight seed requests</a></p>`;
+  $("#reset").onclick = async e => { e.preventDefault(); await api("/api/reset", {method:"POST"}); location.hash = "#/roadmap"; };
+}
+
+/* ---------------- router ---------------- */
+async function route(){
+  const h = location.hash || "#/roadmap";
+  const [, page, arg] = h.split("/");
+  document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("on", a.dataset.r === (page==="memo" ? "roadmap" : page)));
+  try {
+    if (page === "memo") await memo(arg);
+    else if (page === "intake") intake();
+    else if (page === "model") await model();
+    else await roadmap();
+  } catch (e) { $("#main").innerHTML = `<p class="err">Could not load: ${esc(e.message)}</p>`; }
+  if (page !== "memo") window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", () => { if (!location.hash.startsWith("#/roadmap")) { /* keep slots */ } route(); });
+route();
+</script>
+</body>
+</html>
