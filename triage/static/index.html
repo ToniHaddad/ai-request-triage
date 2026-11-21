@@ -130,11 +130,16 @@ legend{font:700 16px var(--serif);padding:0 6px}
   body[data-print=memo] #sheet{display:none}
   body[data-print=memo] .app{display:block!important}
   body[data-print=memo] header.top,body[data-print=memo] .noprint{display:none!important}
-  #sheet h1{font-size:20pt;margin:0 0 2mm}
-  #sheet h2{font-size:12pt;margin:5mm 0 1.5mm;border-bottom:1px solid #000;padding-bottom:1mm}
-  #sheet table{font-size:9pt}
-  #sheet td,#sheet th{padding:2px 5px;border-bottom:1px solid #bbb;color:#000}
-  #sheet p{margin:1mm 0;font-size:9.5pt}
+  #sheet h1{font-size:18pt;margin:0 0 1mm}
+  #sheet h2{font-size:11pt;margin:3mm 0 1mm;border-bottom:1px solid #000;padding-bottom:.5mm}
+  #sheet table{font-size:8pt;line-height:1.25;table-layout:fixed}
+  #sheet th{font-size:7pt}
+  #sheet th:nth-child(1),#sheet td:nth-child(1){width:5mm}
+  #sheet th:nth-child(2),#sheet td:nth-child(2){width:48mm}
+  #sheet th:nth-child(3),#sheet td:nth-child(3){width:30mm}
+  #sheet th:nth-child(4),#sheet td:nth-child(4){width:16mm}
+  #sheet td,#sheet th{padding:1.5px 4px;border-bottom:1px solid #bbb;color:#000}
+  #sheet p{margin:1mm 0;font-size:9pt}
   .chip{border:1px solid #000;background:#fff!important;color:#000!important}
   .card,.decision,.tile,.change{break-inside:avoid;background:#fff!important}
 }
@@ -143,7 +148,7 @@ legend{font:700 16px var(--serif);padding:0 6px}
 <body>
 <div class="app">
 <header class="top"><div class="wrap">
-  <div class="brand"><b>AI request triage</b><span>Northbridge Relief, fictional demo data</span></div>
+  <div class="brand"><b>AI request triage</b><span>A humanitarian organization in Lebanon, synthetic demo data</span></div>
   <nav id="nav">
     <a href="#/roadmap" data-r="roadmap">Roadmap</a>
     <a href="#/intake" data-r="intake">Intake form</a>
@@ -184,7 +189,7 @@ async function roadmap(){
   const wk = Array.from({length:W},(_,k)=>`<span>${k+1}</span>`).join("");
   $("#main").innerHTML = `
     <h1>The ranked 90-day roadmap</h1>
-    <p class="lede">${d.items.length} requests, ${d.slots} build slots. Each request answered the same eight questions; every number below comes from the scoring model on the "How it scores" page.</p>
+    <p class="lede">${d.items.length} requests, ${d.slots} build slots. Each request answered the same ten questions on the intake form; every number below comes from the scoring model on the "How it scores" page.</p>
     <div class="row noprint" style="margin-bottom:14px">
       <span class="stepper">Build slots <button id="m" aria-label="fewer">&minus;</button><b id="sl">${d.slots}</b><button id="p" aria-label="more">+</button></span>
       <span class="spacer"></span>
@@ -219,17 +224,18 @@ async function roadmap(){
 
 function buildSheet(d){
   const sec = (title, items, fn) => items.length ? `<h2>${title}</h2>${fn(items)}` : "";
-  const tbl = (items, extra) => `<table><thead><tr><th>#</th><th>Request</th><th>Decision</th><th>Priority</th><th>${extra}</th></tr></thead><tbody>${items.map(i=>`<tr><td>${i.rank ?? ""}</td><td><b>${esc(i.title)}</b><br>${esc(i.team)}, ${esc(i.office)}</td><td>${LABEL[i.route]}${i.start_week?`<br>Weeks ${i.start_week}-${i.end_week}`:""}</td><td>${i.priority}</td><td>${extra==="What would change it" ? changeText(i) : esc(i.reason)}</td></tr>`).join("")}</tbody></table>`;
+  const tbl = (items, extra) => `<table><thead><tr><th>#</th><th>Request</th><th>Decision</th><th>Priority</th><th>${extra}</th></tr></thead><tbody>${items.map(i=>`<tr><td>${i.rank ?? ""}</td><td><b>${esc(i.title)}</b><br>${esc(i.team)}, ${esc(i.office)}</td><td>${LABEL[i.route]}${i.start_week?`<br>Weeks ${i.start_week}-${i.end_week}`:""}</td><td>${i.priority.toFixed(1)}</td><td>${extra==="What would change it" ? changeText(i) : esc(i.reason)}</td></tr>`).join("")}</tbody></table>`;
   const changeText = i => {
     const parts = [];
     if (i.change && i.change.route) parts.push("Route changes if " + esc(i.change.route.change) + ".");
     if (i.change && i.change.line) parts.push("Crosses the line if " + esc(i.change.line.change) + ".");
-    parts.push(esc(i.stability_text));
+    const st = i.stability;
+    if (st && st.pct_funded !== null && st.pct_funded !== undefined) parts.push("Funded in " + st.pct_funded + "% of " + d.stability.runs + " runs with weights varied " + Math.round(d.stability.variation*100) + "%.");
     return parts.join(" ");
   };
   $("#sheet").innerHTML = `
     <h1>AI roadmap memo: next 90 days</h1>
-    <p>Northbridge Relief (fictional demo). ${d.items.length} requests scored on the same questions. Capacity: ${d.slots} build slots (custom pilots and scheduled automations). Existing-capability training needs no slot.</p>
+    <p>A humanitarian organization in Lebanon (synthetic demo data). ${d.items.length} requests scored on the same questions. Capacity: ${d.slots} build slots (custom pilots and scheduled automations). Existing-capability training needs no slot.</p>
     ${sec("Funded builds", d.items.filter(i=>i.status==="funded"), x=>tbl(x,"What would change it"))}
     ${sec("Training lane", d.items.filter(i=>i.status==="training"), x=>tbl(x,"Why"))}
     ${sec("Below the capacity line", d.items.filter(i=>i.status==="waitlist"), x=>tbl(x,"What would change it"))}
@@ -296,11 +302,11 @@ async function memo(id){
 function intake(){
   $("#main").innerHTML = `
   <h1>Ask for AI help</h1>
-  <p class="lede">Every team answers the same questions, so every request is judged the same way. You will see the decision, the scores and what would change it.</p>
+  <p class="lede">Every team answers the same ten questions, so every request is judged the same way. You will see the decision, the scores and what would change it.</p>
   <form id="f">
     <fieldset><legend>The task</legend><div class="grid">
       <label class="f">Your team<small>Who is asking</small><input type="text" name="team" required></label>
-      <label class="f">Office<small>&nbsp;</small><select name="office"><option>Lebanon</option><option>Kenya</option><option>Colombia</option><option>Global</option></select></label>
+      <label class="f">Unit<small>Where the team sits</small><select name="office"><option>Head office</option><option>Warehouse network</option><option>Field centres</option><option>Operations room</option></select></label>
       <label class="f full">What is the task? <small>A short name</small><input type="text" name="title" required></label>
       <label class="f full">Describe it<small>One or two sentences</small><textarea name="description"></textarea></label>
     </div></fieldset>

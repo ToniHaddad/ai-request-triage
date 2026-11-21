@@ -1,7 +1,7 @@
 # ai-request-triage
 
 Intake form, transparent scoring model, routing rules and a ranked 90-day roadmap for AI help
-requests at a fictional NGO (Northbridge Relief). FastAPI + SQLite + one self-contained page.
+requests at a humanitarian organization in Lebanon (synthetic data). FastAPI + SQLite + one self-contained page.
 No API key, no LLM, no network needed.
 
 ## Run and test
@@ -15,7 +15,7 @@ No API key, no LLM, no network needed.
 - `triage/model.py`: scoring, the five written routing rules (`RULES`), `plan()` (ranking and
   capacity), `stability()` (seeded Monte Carlo), `what_would_change()` (sensitivity search).
 - `triage/memo.py`: builds the memo and roadmap JSON. `triage/app.py`: API. `triage/store.py`: SQLite.
-- `triage/seed.py`: the eight fictional requests. `triage/static/index.html`: the whole UI.
+- `triage/seed.py`: the eight synthetic requests. `triage/static/index.html`: the whole UI.
 - `tests/`: one file per concern (scoring, routing, capacity, sensitivity, stability, seed, api).
 
 ## Rules for changes

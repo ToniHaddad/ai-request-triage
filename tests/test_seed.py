@@ -15,31 +15,37 @@ def test_eight_requests(cfg):
 
 
 def test_meeting_summaries_are_existing_capability_plus_training(cfg):
-    e = entries(cfg)["Meeting-summary help"]
+    e = entries(cfg)["Summaries of long meetings"]
     assert e.decision.route == ROUTE_EXISTING and e.status == STATUS_TRAINING
 
 
-def test_travel_policy_is_a_custom_agent_pilot_and_funded(cfg):
-    e = entries(cfg)["Travel-policy questions"]
+def test_procedure_questions_are_a_custom_agent_pilot_and_funded(cfg):
+    e = entries(cfg)["Which procedure applies?"]
     assert e.decision.route == ROUTE_PILOT and e.status == STATUS_FUNDED
 
 
-def test_overdue_reminders_are_automation_with_no_ai(cfg):
-    e = entries(cfg)["Overdue approval reminders"]
+def test_rental_reminders_are_automation_with_no_ai(cfg):
+    e = entries(cfg)["Rental contract end reminders"]
+    assert e.decision.route == ROUTE_AUTOMATION and e.decision.rule == "R4"
+
+
+def test_purchase_order_rows_are_automation_and_funded(cfg):
+    e = entries(cfg)["Purchase order rows into the stock system"]
     assert e.decision.route == ROUTE_AUTOMATION and e.status == STATUS_FUNDED
 
 
 def test_the_rest_follow_the_rules(cfg):
     e = entries(cfg)
-    assert e["Case-note triage"].decision.rule == "R2"
-    assert e["Donor report drafting from field notes"].decision.rule == "R5"
-    assert e["Ask-anything intranet assistant"].decision.rule == "R1"
-    assert e["Bid comparison summaries"].decision.route == ROUTE_PILOT
-    assert e["Bid comparison summaries"].status != STATUS_FUNDED
-    assert sum(x.decision.route == ROUTE_NOT_NOW for x in e.values()) == 3
+    assert e["Protection case-note triage"].decision.rule == "R2"
+    ask = e["Ask-anything intranet assistant"].decision
+    assert (ask.route, ask.rule) == (ROUTE_NOT_NOW, "R5") and "owner" in ask.reason and "measurable" in ask.reason
+    assert e["Donor report narrative from stock figures"].decision.route == ROUTE_PILOT
+    assert e["Operations room chat into a situation update"].decision.route == ROUTE_PILOT
+    assert e["Operations room chat into a situation update"].status != STATUS_FUNDED
+    assert sum(x.decision.route == ROUTE_NOT_NOW for x in e.values()) == 2
 
 
-def test_no_request_titles_appear_in_the_model_code():
-    src = (pathlib.Path(__file__).parents[1] / "triage" / "model.py").read_text()
-    for t in ("Travel", "Meeting", "Overdue", "Northbridge"):
+def test_no_request_wording_appears_in_the_model_code():
+    src = (pathlib.Path(__file__).parents[1] / "triage" / "model.py").read_text().lower()
+    for t in ("procedure", "meeting", "rental", "purchase order", "donor", "warehouse"):
         assert t not in src

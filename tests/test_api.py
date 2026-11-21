@@ -27,7 +27,7 @@ def test_slots_query(client):
 
 
 def test_memo_has_the_computed_sections(client):
-    m = client.get("/api/requests/2/memo").json()
+    m = client.get("/api/requests/3/memo").json()
     assert m["entry"]["route"] == "agent_pilot"
     assert m["drivers"] and len(m["change"]) == 2 and "percent of 1000 runs" in m["stability_text"]
 

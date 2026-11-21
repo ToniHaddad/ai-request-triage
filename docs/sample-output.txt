@@ -1,10 +1,10 @@
 90-day roadmap, 2 build slots, stability from 1000 seeded runs
 
- 1  Travel-policy questions                Custom agent pilot                           funded     83.8 100% funded
- 2  Meeting-summary help                   Use an existing capability and train people  training   82.3 
- 3  Overdue approval reminders             Scheduled automation, no AI needed           funded     65.9 58% funded
- 4  Bid comparison summaries               Custom agent pilot                           waitlist   65.6 42% funded
- 5  Candidate shortlist summaries          Custom agent pilot                           waitlist   39.6 0% funded
- -  Donor report drafting from field notes Not now                                      not_now    40.2 
- -  Case-note triage                       Not now                                      not_now    43.3 
- -  Ask-anything intranet assistant        Not now                                      not_now    26.4 
+ 1  Summaries of long meetings             Use an existing capability and train people  training   73.1 
+ 2  Which procedure applies?               Custom agent pilot                           funded     63.3 100% funded
+ 3  Purchase order rows into the stock system Scheduled automation, no AI needed           funded     55.3 61% funded
+ 4  Donor report narrative from stock figures Custom agent pilot                           waitlist   55.0 39% funded
+ 5  Rental contract end reminders          Scheduled automation, no AI needed           waitlist   46.1 0% funded
+ 6  Operations room chat into a situation update Custom agent pilot                           waitlist   37.0 0% funded
+ -  Protection case-note triage            Not now                                      not_now    43.3 
+ -  Ask-anything intranet assistant        Not now                                      not_now    50.1 
